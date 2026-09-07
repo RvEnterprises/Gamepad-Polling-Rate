@@ -1,0 +1,22 @@
+# Give logged-in users read access to gamepads / input devices
+# so gpr works without sudo after a replug / reboot.
+#
+# Install with:
+#   sudo cp udev/99-gamepad-polling-rate.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+# Or: make install
+# The quick alternative (no install) is adding yourself to the input group:
+#   sudo usermod -aG input "$USER"   # then log out and back in
+
+SUBSYSTEM=="input", GROUP="input", MODE="0660"
+SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="1", TAG+="uaccess"
+SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="?*", TAG+="uaccess"
+KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="*Controller*", TAG+="uaccess"
+KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="*Gamepad*", TAG+="uaccess"
+KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="*Joystick*", TAG+="uaccess"
+KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="*Xbox*", TAG+="uaccess"
+KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="*PlayStation*", TAG+="uaccess"
+KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="*DualShock*", TAG+="uaccess"
+KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="*DualSense*", TAG+="uaccess"
+KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="*Nintendo*", TAG+="uaccess"
+KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="*8BitDo*", TAG+="uaccess"

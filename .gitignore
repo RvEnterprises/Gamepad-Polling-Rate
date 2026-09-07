@@ -1,0 +1,34 @@
+# Build output
+gpr
+*.o
+*.d
+*.a
+*.so
+*.out
+tests/test_stats
+
+# Measurement logs
+*.csv
+*.json
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.orig
+*.rej
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug / profiling artifacts
+*.dSYM/
+gmon.out
+vgcore.*
+core
+
+# Local-only agent instructions (never commit)
+AGENTS.md
