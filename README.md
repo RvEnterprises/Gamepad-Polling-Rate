@@ -55,7 +55,7 @@ gpr benchmark [-d DEVICE] [-t SECS] [--csv [FILE]]
 | `-t, --time SECS` | `0` (until Ctrl+C), `10` for benchmark | fixed run length |
 | `-r, --rate MS` | `200` | live display refresh |
 | `--csv [FILE]` | off | per-report log (`t_s,dt_ms,reports,events`); auto-creates `gpr-<device>-<timestamp>.csv` if FILE is omitted |
-| `--json [FILE]` | off | one-line JSON final report on stdout, auto-saves `gpr-<device>-<timestamp>.json` if FILE is omitted (implies `--no-live`) |
+| `--json [FILE]` | off | one-line JSON final report on stdout, auto-saves pretty-printed `gpr-<device>-<timestamp>.json` if FILE is omitted (implies `--no-live`) |
 | `--no-live` | off | suppress the updating status line |
 
 More examples:

@@ -115,19 +115,52 @@ static void print_report_human(const char *path, const char *name, double elapse
 
 static void print_report_json(const char *path, const char *name, double elapsed,
                               unsigned long reports, unsigned long total_events,
-                              gpr_stats_t *st, FILE *out) {
+                              gpr_stats_t *st, FILE *out, bool pretty) {
     double avg_hz = elapsed > 0 ? (double)reports / elapsed : 0.0;
     double est = gpr_stats_estimated_hz(st);
-    fprintf(out, "{\"device\":\"%s\",\"name\":\"%s\",\"elapsed_s\":%.3f,"
-           "\"reports\":%lu,\"events\":%lu,\"avg_hz\":%.2f,"
-           "\"min_ms\":%.3f,\"mean_ms\":%.3f,\"stddev_ms\":%.3f,"
-           "\"p1_ms\":%.3f,\"p5_ms\":%.3f,\"median_ms\":%.3f,"
-           "\"p95_ms\":%.3f,\"p99_ms\":%.3f,\"max_ms\":%.3f,"
-           "\"estimated_hz\":%.1f,\"nearest_standard_hz\":%d}\n",
-           path, name, elapsed, reports, total_events, avg_hz, gpr_stats_min(st),
-           gpr_stats_mean(st), gpr_stats_stddev(st), gpr_stats_percentile(st, 1),
-           gpr_stats_percentile(st, 5), gpr_stats_median(st), gpr_stats_percentile(st, 95),
-           gpr_stats_percentile(st, 99), gpr_stats_max(st), est, gpr_snap_rate(est));
+    double min = gpr_stats_min(st);
+    double mean = gpr_stats_mean(st);
+    double sd = gpr_stats_stddev(st);
+    double p1 = gpr_stats_percentile(st, 1);
+    double p5 = gpr_stats_percentile(st, 5);
+    double med = gpr_stats_median(st);
+    double p95 = gpr_stats_percentile(st, 95);
+    double p99 = gpr_stats_percentile(st, 99);
+    double max = gpr_stats_max(st);
+    int snapped = gpr_snap_rate(est);
+    if (!pretty) {
+        fprintf(out, "{\"device\":\"%s\",\"name\":\"%s\",\"elapsed_s\":%.3f,"
+               "\"reports\":%lu,\"events\":%lu,\"avg_hz\":%.2f,"
+               "\"min_ms\":%.3f,\"mean_ms\":%.3f,\"stddev_ms\":%.3f,"
+               "\"p1_ms\":%.3f,\"p5_ms\":%.3f,\"median_ms\":%.3f,"
+               "\"p95_ms\":%.3f,\"p99_ms\":%.3f,\"max_ms\":%.3f,"
+               "\"estimated_hz\":%.1f,\"nearest_standard_hz\":%d}\n",
+               path, name, elapsed, reports, total_events, avg_hz, min,
+               mean, sd, p1, p5, med, p95, p99, max, est, snapped);
+        return;
+    }
+    fprintf(out,
+            "{\n"
+            "  \"device\": \"%s\",\n"
+            "  \"name\": \"%s\",\n"
+            "  \"elapsed_s\": %.3f,\n"
+            "  \"reports\": %lu,\n"
+            "  \"events\": %lu,\n"
+            "  \"avg_hz\": %.2f,\n"
+            "  \"min_ms\": %.3f,\n"
+            "  \"mean_ms\": %.3f,\n"
+            "  \"stddev_ms\": %.3f,\n"
+            "  \"p1_ms\": %.3f,\n"
+            "  \"p5_ms\": %.3f,\n"
+            "  \"median_ms\": %.3f,\n"
+            "  \"p95_ms\": %.3f,\n"
+            "  \"p99_ms\": %.3f,\n"
+            "  \"max_ms\": %.3f,\n"
+            "  \"estimated_hz\": %.1f,\n"
+            "  \"nearest_standard_hz\": %d\n"
+            "}\n",
+            path, name, elapsed, reports, total_events, avg_hz, min,
+            mean, sd, p1, p5, med, p95, p99, max, est, snapped);
 }
 
 /* Build gpr-<device>-<timestamp>.<ext> so bare --csv/--json still save a file. */
@@ -306,7 +339,7 @@ int gpr_monitor(const gpr_monitor_opts_t *opts) {    char selected[GPR_PATH_LEN]
     }
 
     if (opts->json_output) {
-        print_report_json(path, devname, elapsed, reports, total_events, &st, stdout);
+        print_report_json(path, devname, elapsed, reports, total_events, &st, stdout, false);
         char auto_json[256] = "";
         const char *json_path = opts->json_path;
         if (!json_path) {
@@ -318,7 +351,7 @@ int gpr_monitor(const gpr_monitor_opts_t *opts) {    char selected[GPR_PATH_LEN]
             fprintf(stderr, "warning: cannot write JSON %s: %s\n", json_path,
                     strerror(errno));
         } else {
-            print_report_json(path, devname, elapsed, reports, total_events, &st, jf);
+            print_report_json(path, devname, elapsed, reports, total_events, &st, jf, true);
             fclose(jf);
             fprintf(stderr, "Saved JSON report to %s\n", json_path);
         }
