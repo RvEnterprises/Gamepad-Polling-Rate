@@ -283,7 +283,7 @@ int gpr_monitor(const gpr_monitor_opts_t *opts) {    char selected[GPR_PATH_LEN]
                     break;
                 size_t nev = (size_t)n / sizeof(struct input_event);
                 double arrival = now_monotonic_sec();
-                bool saw_syn = false;
+                unsigned syn_count = 0;
                 for (size_t i = 0; i < nev; i++) {
                     total_events++;
                     if (ev[i].type == EV_ABS)
@@ -291,23 +291,40 @@ int gpr_monitor(const gpr_monitor_opts_t *opts) {    char selected[GPR_PATH_LEN]
                     else if (ev[i].type == EV_KEY)
                         key_count++;
                     else if (ev[i].type == EV_SYN && ev[i].code == SYN_REPORT)
-                        saw_syn = true;
+                        syn_count++;
                 }
                 /* One SYN_REPORT batch = one device report. This is the
-                 * polling clock; raw event counts inflate with multi-axis moves. */
-                if (saw_syn) {
+                 * polling clock; raw event counts inflate with multi-axis moves.
+                 * One read() can coalesce several reports, so count each SYN
+                 * individually. Coalesced reports share one arrival timestamp,
+                 * so split the elapsed time evenly instead of emitting a burst
+                 * of 0 ms intervals (which would drag the median toward inf Hz)
+                 * or collapsing to one report (which undercounts). */
+                if (syn_count > 0) {
+                    double step = 0.0;
                     if (last_report_t >= 0) {
-                        last_interval_ms = (arrival - last_report_t) * 1000.0;
-                        gpr_stats_add(&st, last_interval_ms);
+                        step = (arrival - last_report_t) / (double)syn_count;
+                        if (!(step >= 0.0))
+                            step = 0.0;
+                    }
+                    for (unsigned s = 0; s < syn_count; s++) {
+                        if (last_report_t >= 0) {
+                            last_interval_ms = step * 1000.0;
+                            gpr_stats_add(&st, last_interval_ms);
+                            last_report_t += step;
+                        } else {
+                            last_report_t = arrival;
+                            last_interval_ms = 0.0;
+                        }
+                        reports++;
+                        win_reports++;
+                        if (csv)
+                            fprintf(csv, "%.6f,%.4f,%lu,%lu\n", last_report_t - start,
+                                    last_interval_ms, reports, total_events);
                     }
                     last_report_t = arrival;
-                    reports++;
-                    win_reports++;
-                    if (csv)
-                        fprintf(csv, "%.6f,%.4f,%lu,%lu\n", arrival - start,
-                                last_interval_ms, reports, total_events);
                 }
-                if ((size_t)n < sizeof(ev) / sizeof(ev[0]))
+                if ((size_t)n < sizeof(ev))
                     break;
             }
         }
