@@ -113,6 +113,42 @@ static void print_report_human(const char *path, const char *name, double elapse
            "Idle time lowers the average, the median is the rate to trust.\n");
 }
 
+static void print_json_string(FILE *out, const char *s) {
+    putc('"', out);
+    for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
+        switch (*p) {
+        case '"':
+            fputs("\\\"", out);
+            break;
+        case '\\':
+            fputs("\\\\", out);
+            break;
+        case '\b':
+            fputs("\\b", out);
+            break;
+        case '\f':
+            fputs("\\f", out);
+            break;
+        case '\n':
+            fputs("\\n", out);
+            break;
+        case '\r':
+            fputs("\\r", out);
+            break;
+        case '\t':
+            fputs("\\t", out);
+            break;
+        default:
+            if (*p < 0x20)
+                fprintf(out, "\\u%04x", *p);
+            else
+                putc(*p, out);
+            break;
+        }
+    }
+    putc('"', out);
+}
+
 static void print_report_json(const char *path, const char *name, double elapsed,
                               unsigned long reports, unsigned long total_events,
                               gpr_stats_t *st, FILE *out, bool pretty) {
@@ -129,20 +165,26 @@ static void print_report_json(const char *path, const char *name, double elapsed
     double max = gpr_stats_max(st);
     int snapped = gpr_snap_rate(est);
     if (!pretty) {
-        fprintf(out, "{\"device\":\"%s\",\"name\":\"%s\",\"elapsed_s\":%.3f,"
+        fputs("{\"device\":", out);
+        print_json_string(out, path);
+        fputs(",\"name\":", out);
+        print_json_string(out, name);
+        fprintf(out, ",\"elapsed_s\":%.3f,"
                "\"reports\":%lu,\"events\":%lu,\"avg_hz\":%.2f,"
                "\"min_ms\":%.3f,\"mean_ms\":%.3f,\"stddev_ms\":%.3f,"
                "\"p1_ms\":%.3f,\"p5_ms\":%.3f,\"median_ms\":%.3f,"
                "\"p95_ms\":%.3f,\"p99_ms\":%.3f,\"max_ms\":%.3f,"
                "\"estimated_hz\":%.1f,\"nearest_standard_hz\":%d}\n",
-               path, name, elapsed, reports, total_events, avg_hz, min,
+               elapsed, reports, total_events, avg_hz, min,
                mean, sd, p1, p5, med, p95, p99, max, est, snapped);
         return;
     }
+    fputs("{\n  \"device\": ", out);
+    print_json_string(out, path);
+    fputs(",\n  \"name\": ", out);
+    print_json_string(out, name);
     fprintf(out,
-            "{\n"
-            "  \"device\": \"%s\",\n"
-            "  \"name\": \"%s\",\n"
+            ",\n"
             "  \"elapsed_s\": %.3f,\n"
             "  \"reports\": %lu,\n"
             "  \"events\": %lu,\n"
@@ -159,7 +201,7 @@ static void print_report_json(const char *path, const char *name, double elapsed
             "  \"estimated_hz\": %.1f,\n"
             "  \"nearest_standard_hz\": %d\n"
             "}\n",
-            path, name, elapsed, reports, total_events, avg_hz, min,
+            elapsed, reports, total_events, avg_hz, min,
             mean, sd, p1, p5, med, p95, p99, max, est, snapped);
 }
 

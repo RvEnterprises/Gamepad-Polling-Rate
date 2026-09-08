@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,6 +37,42 @@ static void print_usage(const char *prog) {
            "an idle pad sends nothing and the average will sag.\n");
 }
 
+static void print_json_string(FILE *out, const char *s) {
+    putc('"', out);
+    for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
+        switch (*p) {
+        case '"':
+            fputs("\\\"", out);
+            break;
+        case '\\':
+            fputs("\\\\", out);
+            break;
+        case '\b':
+            fputs("\\b", out);
+            break;
+        case '\f':
+            fputs("\\f", out);
+            break;
+        case '\n':
+            fputs("\\n", out);
+            break;
+        case '\r':
+            fputs("\\r", out);
+            break;
+        case '\t':
+            fputs("\\t", out);
+            break;
+        default:
+            if (*p < 0x20)
+                fprintf(out, "\\u%04x", *p);
+            else
+                putc(*p, out);
+            break;
+        }
+    }
+    putc('"', out);
+}
+
 static int cmd_list_json(void) {
     gpr_device_list_t list;
     if (gpr_scan_devices(&list) != 0)
@@ -42,8 +80,11 @@ static int cmd_list_json(void) {
     printf("{\"devices\":[");
     for (size_t i = 0; i < list.count; i++) {
         const gpr_device_t *d = &list.items[i];
-        printf("%s{\"path\":\"%s\",\"name\":\"%s\",\"gamepad\":%s}", i ? "," : "", d->path,
-               d->name, d->is_gamepad ? "true" : "false");
+        printf("%s{\"path\":", i ? "," : "");
+        print_json_string(stdout, d->path);
+        printf(",\"name\":");
+        print_json_string(stdout, d->name);
+        printf(",\"gamepad\":%s}", d->is_gamepad ? "true" : "false");
     }
     printf("]}\n");
     return 0;
@@ -98,17 +139,29 @@ int main(int argc, char **argv) {
             if ((strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--device") == 0) && i + 1 < argc) {
                 opts.device_path = argv[++i];
             } else if ((strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--time") == 0) && i + 1 < argc) {
-                opts.duration_sec = atof(argv[++i]);
-                if (opts.duration_sec < 0) {
-                    fprintf(stderr, "error: --time must be >= 0\n");
+                const char *arg = argv[++i];
+                char *end = NULL;
+                errno = 0;
+                double v = strtod(arg, &end);
+                if (errno != 0 || end == arg || *end != '\0' || !isfinite(v) ||
+                    v < 0) {
+                    fprintf(stderr, "error: --time must be a number >= 0 (got '%s')\n",
+                            arg);
                     return 1;
                 }
+                opts.duration_sec = v;
             } else if ((strcmp(argv[i], "-r") == 0 || strcmp(argv[i], "--rate") == 0) && i + 1 < argc) {
-                opts.refresh_ms = atoi(argv[++i]);
-                if (opts.refresh_ms < 50 || opts.refresh_ms > 2000) {
-                    fprintf(stderr, "error: --rate must be 50..2000 ms\n");
+                const char *arg = argv[++i];
+                char *end = NULL;
+                errno = 0;
+                long v = strtol(arg, &end, 10);
+                if (errno != 0 || end == arg || *end != '\0' || v < 50 || v > 2000) {
+                    fprintf(stderr,
+                            "error: --rate must be an integer 50..2000 ms (got '%s')\n",
+                            arg);
                     return 1;
                 }
+                opts.refresh_ms = (int)v;
             } else if (strcmp(argv[i], "--csv") == 0) {
                 if (i + 1 < argc && argv[i + 1][0] != '-') {
                     opts.csv_path = argv[++i];
