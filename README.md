@@ -110,8 +110,10 @@ Strict build is the default: `-std=c11 -O2 -Wall -Wextra -Wpedantic`.
 4. Read the **median / estimated rate**, check the histogram is a single sharp peak.
 5. Repeat wired vs. wireless / 2.4 GHz dongle vs. Bluetooth; expect e.g. 1000 Hz wired, 250-500 Hz dongle, 125-250 Hz Bluetooth depending on the pad.
 
-Caveats:
+Caveats (these are system properties, not bugs):
 
 - Bluetooth pads and some drivers batch or filter reports; what you see is the *effective* report rate, which is the number that matters for latency.
 - `xbox`, `xpadneo`, `ds360` style drivers can alter timing vs. raw USB.
 - VMs and compositor load add jitter; p95/p99 expose it.
+
+gpr measures the effective report rate seen by the OS, not the raw USB bus rate, and that effective rate is the number that matters for game latency.
